@@ -7,6 +7,10 @@ using Grasshopper.Kernel.Data;
 using System.Text.RegularExpressions;
 using System.Linq;
 
+using System.IO;
+using System.Net;
+using System.Net.Cache;
+
 // In order to load the result of this wizard, you will also need to
 // add the output bin/ folder of this project to the list of loaded
 // folder in Grasshopper.
@@ -53,9 +57,6 @@ namespace Runway
             pManager.AddTextParameter("Output runway Data", "ord", "output runway live data", GH_ParamAccess.item);
             pManager.AddTextParameter("Output runway Info", "ori", "output runway live data", GH_ParamAccess.item);
             pManager.AddTextParameter("Output runway Error", "ore", "output runway live data", GH_ParamAccess.item);
-            
-
-
         }
 
         /// <summary>
@@ -69,7 +70,7 @@ namespace Runway
 
             // define parameter
 
-            string mainAddress= "";
+            string mainAddress = "";
             bool dataAddress = false;
             bool Binfo = false;
             bool Berror = false;
@@ -80,44 +81,153 @@ namespace Runway
             DA.GetData(3, ref Berror);
             DA.GetData(4, ref Brun);
 
-            //
+            string responseData = null;
+            string responseInfo = null;
+            string responseError = null;
 
-            using (System.Net.WebClient client = new System.Net.WebClient()) {
-                string clientMain = client.DownloadString(mainAddress);
+            bool isValid = true;
 
-                if (Brun == true && clientMain != "") {
+            // Http request implementation (instead of Net.Client). Allows live data between Runway and Grasshopper without results getting stored in Cache, resulting in a non static value.
+
+            if (Brun == true && mainAddress != "" && isValid == true)
+            {
+                if (dataAddress == true)
+                {
                     ExpireSolution(true);
-                    if (dataAddress != false)
-                    {
-                        string data = client.DownloadString(mainAddress + "/data");
-                        DA.SetData(0, data);
-                    }
 
-                    if (Binfo != false)
-                    {
-                        string infodata = client.DownloadString(mainAddress + "/info");
-                        DA.SetData(1, infodata);
-                    }
-                    if (Berror != false)
-                    {
-                        string data = client.DownloadString(mainAddress + "/error");
-                        DA.SetData(2, data);
-                    }
+                    // Cache settings that avoid to store data
 
+                    HttpRequestCachePolicy policy = new HttpRequestCachePolicy(HttpRequestCacheLevel.Default);
+                    HttpWebRequest.DefaultCachePolicy = policy;
+
+                    WebRequest request = WebRequest.Create(mainAddress + "/data");
+
+                    HttpRequestCachePolicy noCachePolicy = new HttpRequestCachePolicy(HttpRequestCacheLevel.NoCacheNoStore);
+                    request.CachePolicy = noCachePolicy;
+
+                    try
+                    {
+                        using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                        {
+                            // Get the stream containing content returned by the server.
+                            using (Stream dataStream = response.GetResponseStream())
+                            {
+                                // Open the stream using a StreamReader for easy access.
+                                StreamReader reader = new StreamReader(dataStream);
+
+                                // Read the content.
+                                responseData = reader.ReadToEnd();
+
+                                request.Abort();
+                                dataStream.Close();
+
+                                DA.SetData(0, responseData);
+                            }
+
+                        }
+
+                    }
+                    catch (WebException ex)
+                    {
+                        using (HttpWebResponse res = (HttpWebResponse)ex.Response)
+                        {
+                            this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "There is an issue with the server");
+                            isValid = false;
+                        }
+                    }
 
                 }
-               
 
+                if (Binfo == true)
+                {
+                    ExpireSolution(true);
+
+                    HttpRequestCachePolicy policy = new HttpRequestCachePolicy(HttpRequestCacheLevel.Default);
+                    HttpWebRequest.DefaultCachePolicy = policy;
+
+                    WebRequest request = WebRequest.Create(mainAddress + "/info");
+
+                    HttpRequestCachePolicy noCachePolicy = new HttpRequestCachePolicy(HttpRequestCacheLevel.NoCacheNoStore);
+                    request.CachePolicy = noCachePolicy;
+
+                    try
+                    {
+                        using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                        {
+                            // Get the stream containing content returned by the server.
+                            using (Stream dataStream = response.GetResponseStream())
+                            {
+                                // Open the stream using a StreamReader for easy access.
+                                StreamReader reader = new StreamReader(dataStream);
+
+                                // Read the content.
+                                responseInfo = reader.ReadToEnd();
+
+                                request.Abort();
+                                dataStream.Close();
+
+                                DA.SetData(1, responseInfo);
+                            }
+
+                        }
+
+                    }
+                    catch (WebException ex)
+                    {
+                        using (HttpWebResponse res = (HttpWebResponse)ex.Response)
+                        {
+                            this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "There is an issue with the server");
+                            isValid = false;
+                        }
+                    }
+                }
+
+                if (Berror == true)
+                {
+                    ExpireSolution(true);
+
+                    HttpRequestCachePolicy policy = new HttpRequestCachePolicy(HttpRequestCacheLevel.Default);
+                    HttpWebRequest.DefaultCachePolicy = policy;
+
+                    WebRequest request = WebRequest.Create(mainAddress + "/error");
+
+                    HttpRequestCachePolicy noCachePolicy = new HttpRequestCachePolicy(HttpRequestCacheLevel.NoCacheNoStore);
+                    request.CachePolicy = noCachePolicy;
+
+                    try
+                    {
+                        using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                        {
+                            // Get the stream containing content returned by the server.
+                            using (Stream dataStream = response.GetResponseStream())
+                            {
+                                // Open the stream using a StreamReader for easy access.
+                                StreamReader reader = new StreamReader(dataStream);
+
+                                // Read the content.
+                                responseError = reader.ReadToEnd();
+
+                                request.Abort();
+                                dataStream.Close();
+
+                                DA.SetData(2, responseError);
+                            }
+
+                        }
+
+                    }
+                    catch (WebException ex)
+                    {
+                        using (HttpWebResponse res = (HttpWebResponse)ex.Response)
+                        {
+                            this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "There is an issue with the server");
+                            isValid = false;
+                        }
+                    }
+                }
             }
 
-
-
         }
-
-    
-
-
-
 
         /// <summary>
         /// Provides an Icon for every component that will be visible in the User Interface.

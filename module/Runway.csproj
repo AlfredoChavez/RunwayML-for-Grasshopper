@@ -101,7 +101,7 @@
   </Target>
   -->
   <PropertyGroup>
-    <PostBuildEvent>Copy "$(TargetPath)" "C:\Users\vahid\AppData\Roaming\Grasshopper\Libraries\Runway.gha"
+    <PostBuildEvent>Copy "$(TargetPath)" "C:\Users\Alfre\AppData\Roaming\Grasshopper\Libraries\$(ProjectName).gha"
 Erase "$(TargetPath)"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
